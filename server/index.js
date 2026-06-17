@@ -5,7 +5,7 @@ import cors from 'cors';
 import rateLimit from 'express-rate-limit';
 import { parsePrescriptionWithAI } from './prescriptionAi.js';
 import { startMedicineReminderScheduler } from './medicineScheduler.js';
-import { getSupabaseAdmin, isSupabaseAdminConfigured } from './supabaseAdmin.js';
+import { getSupabaseAdmin, isSupabaseAdminConfigured, verifySupabaseServiceRole } from './supabaseAdmin.js';
 import {
   createElderlyDeviceSession,
   isElderlySessionConfigured,
@@ -72,14 +72,17 @@ app.set('trust proxy', 1);
 app.use(cors(corsOptions));
 app.use(express.json({ limit: '10mb' }));
 
-app.get('/health', (_req, res) => {
+app.get('/health', async (_req, res) => {
+  const serviceRole = await verifySupabaseServiceRole();
   res.json({
-    ok: true,
+    ok: serviceRole.ok,
     service: 'kodokushi-backend',
     port: PORT,
     origins: CLIENT_ORIGINS,
     supabaseAdmin: isSupabaseAdminConfigured(),
-    elderlySession: isElderlySessionConfigured(),
+    serviceRoleValid: serviceRole.ok,
+    serviceRoleIssue: serviceRole.ok ? null : serviceRole.reason,
+    elderlySession: isSupabaseAdminConfigured() && serviceRole.ok,
     openai: Boolean(process.env.OPENAI_API_KEY),
   });
 });
@@ -126,6 +129,13 @@ app.post('/api/elderly/device-session', deviceSessionLimiter, async (req, res) =
     res.json(session);
   } catch (error) {
     const message = error instanceof Error ? error.message : 'DEVICE_SESSION_FAILED';
+    if (message === 'User not allowed') {
+      res.status(503).json({
+        error: 'WRONG_SERVICE_ROLE_KEY',
+        hint: 'Render SUPABASE_SERVICE_ROLE_KEY must be Supabase service_role secret (sb_secret_...), not anon key.',
+      });
+      return;
+    }
     res.status(500).json({ error: message });
   }
 });
