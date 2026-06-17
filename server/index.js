@@ -5,7 +5,7 @@ import cors from 'cors';
 import rateLimit from 'express-rate-limit';
 import { parsePrescriptionWithAI } from './prescriptionAi.js';
 import { startMedicineReminderScheduler } from './medicineScheduler.js';
-import { getSupabaseAdmin, isSupabaseAdminConfigured, verifySupabaseServiceRole } from './supabaseAdmin.js';
+import { getSupabaseAdmin, isSupabaseAdminConfigured, verifySupabaseServiceRole, getSupabaseEnvDiagnostics } from './supabaseAdmin.js';
 import {
   createElderlyDeviceSession,
   isElderlySessionConfigured,
@@ -74,12 +74,15 @@ app.use(express.json({ limit: '10mb' }));
 
 app.get('/health', async (_req, res) => {
   const serviceRole = await verifySupabaseServiceRole();
+  const envDiag = getSupabaseEnvDiagnostics();
   res.json({
     ok: serviceRole.ok,
     service: 'kodokushi-backend',
     port: PORT,
     origins: CLIENT_ORIGINS,
     supabaseAdmin: isSupabaseAdminConfigured(),
+    supabaseProjectRef: envDiag.supabaseProjectRef,
+    serviceRoleKeyType: envDiag.serviceRoleKeyType,
     serviceRoleValid: serviceRole.ok,
     serviceRoleIssue: serviceRole.ok ? null : serviceRole.reason,
     elderlySession: isSupabaseAdminConfigured() && serviceRole.ok,

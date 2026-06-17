@@ -22,6 +22,19 @@ function looksLikeAnonKey(key) {
   }
 }
 
+function describeKey(key) {
+  if (!key) return 'missing';
+  if (key.startsWith('sb_secret_')) return 'sb_secret';
+  if (key.startsWith('eyJ')) return 'jwt';
+  return 'other';
+}
+
+function getSupabaseProjectRef(url) {
+  if (!url) return null;
+  const match = url.match(/^https:\/\/([^.]+)\.supabase\.co\/?$/);
+  return match?.[1] ?? null;
+}
+
 export async function verifySupabaseServiceRole() {
   if (!isSupabaseAdminConfigured()) {
     return { ok: false, reason: 'MISSING_ENV' };
@@ -57,4 +70,11 @@ export function getSupabaseAdmin() {
   }
 
   return adminClient;
+}
+
+export function getSupabaseEnvDiagnostics() {
+  return {
+    supabaseProjectRef: getSupabaseProjectRef(supabaseUrl),
+    serviceRoleKeyType: describeKey(serviceRoleKey),
+  };
 }
