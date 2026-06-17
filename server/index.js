@@ -46,10 +46,17 @@ const corsOptions = {
 
 const deviceSessionLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 5,
+  max: 30,
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'RATE_LIMITED' },
+  // Limit per invite code, not shared Render/proxy IP (avoids blocking all users together).
+  keyGenerator: (req) => {
+    const inviteCode = typeof req.body?.inviteCode === 'string' ? req.body.inviteCode.trim() : '';
+    return inviteCode || req.ip || 'unknown';
+  },
+  // Failed setup attempts (wrong keys, etc.) should not burn the budget for a successful login.
+  skipSuccessfulRequests: true,
 });
 
 const apiLimiter = rateLimit({
